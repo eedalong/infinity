@@ -17,6 +17,8 @@
 #include <infinity/utils/Debug.h>
 #include <infinity/utils/Address.h>
 
+#include <iostream>
+
 namespace infinity {
 namespace queues {
 
@@ -143,6 +145,7 @@ QueuePair * QueuePairFactory::connectToRemoteHost(const char* hostAddress, uint1
 	sendBuffer->userDataSize = userDataSizeInBytes;
 	memcpy(sendBuffer->userData, userData, userDataSizeInBytes);
 
+	std::cout<< "Start to Send" << std::endl;
 	returnValue = send(connectionSocket, sendBuffer, sizeof(serializedQueuePair), 0);
 	INFINITY_ASSERT(returnValue == sizeof(serializedQueuePair),
 			"[INFINITY][QUEUES][FACTORY] Incorrect number of bytes transmitted. Expected %lu. Received %d.\n", sizeof(serializedQueuePair), returnValue);

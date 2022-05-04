@@ -19,7 +19,7 @@
 #include <infinity/requests/RequestToken.h>
 
 #define PORT_NUMBER 8011
-#define SERVER_IP "192.0.0.1"
+#define SERVER_IP "127.0.0.1"
 
 // Usage: ./progam -s for server and ./program for client component
 int main(int argc, char **argv) {
