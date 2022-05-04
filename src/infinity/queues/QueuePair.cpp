@@ -113,13 +113,11 @@ void QueuePair::activate(uint16_t remoteDeviceId, uint32_t remoteQueuePairNumber
 	qpAttributes.retry_cnt = 7;
 	qpAttributes.rnr_retry = 7;
 	qpAttributes.sq_psn = this->getSequenceNumber();
-	qpAttributes.max_rd_atomic = 1;
+	qpAttributes.max_rd_atomic = 16;
 
 	returnValue = ibv_modify_qp(this->ibvQueuePair, &qpAttributes,
 			IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC);
-
 	INFINITY_ASSERT(returnValue == 0, "[INFINITY][QUEUES][QUEUEPAIR] Cannot transition to RTS state.\n");
-
 }
 
 void QueuePair::setRemoteUserData(void* userData, uint32_t userDataSize) {
@@ -266,6 +264,8 @@ void QueuePair::write(infinity::memory::Buffer* buffer, uint64_t localOffset, in
 	workRequest.send_flags = send_flags.ibvFlags();
 	if (requestToken != NULL) {
 		workRequest.send_flags |= IBV_SEND_SIGNALED;
+	}else{
+		workRequest.send_flags &= ~IBV_SEND_SIGNALED;
 	}
 	workRequest.wr.rdma.remote_addr = destination->getAddress() + remoteOffset;
 	workRequest.wr.rdma.rkey = destination->getRemoteKey();

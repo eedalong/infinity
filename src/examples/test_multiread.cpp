@@ -32,10 +32,9 @@
 #define FEATURE_DIM 512
 #define FEATURE_TYPE_SIZE 4
 #define TEST_COUNT 200
-#define MAX_OUTSTANDING_REQ 4
-#define MULTI_READ_SIZE 20
-
-
+#define MAX_OUTSTANDING_REQ 1
+#define POST_LIST_SIZE 20
+#define CQ_MOD 10
 
 int min(int a, int b){
     if(a < b){
@@ -108,11 +107,11 @@ int main(int argc, char **argv) {
 
   } else {
 
-    std::vector<uint64_t> local_offsets(MULTI_READ_SIZE, 0);
-    std::vector<uint64_t> remote_offsets(MULTI_READ_SIZE, 0);
+    std::vector<uint64_t> local_offsets(POST_LIST_SIZE, 0);
+    std::vector<uint64_t> remote_offsets(POST_LIST_SIZE, 0);
     int start_request = 0;
     int end_request = 0;
-    infinity::queues::SendRequestBuffer send_buffer(MULTI_READ_SIZE);
+    infinity::queues::SendRequestBuffer send_buffer(POST_LIST_SIZE);
 
     printf("Connecting to remote node\n");
     qp = qpFactory->connectToRemoteHost(SERVER_IP, PORT_NUMBER);
@@ -127,10 +126,7 @@ int main(int argc, char **argv) {
 
 
     printf("Reading content from remote buffer\n");
-    std::vector<infinity::requests::RequestToken *> requests;
-    for (int i = 0; i < MAX_OUTSTANDING_REQ; i++) {
-      requests.push_back(new infinity::requests::RequestToken(context));
-    }
+    infinity::requests::RequestToken requestToken(context);
 
     // warm up
 
@@ -140,15 +136,15 @@ int main(int argc, char **argv) {
       uint64_t offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
       //std::cout << "Getting Data From " << offset << " To " << offset + FEATURE_DIM * FEATURE_TYPE_SIZE << std::endl;
       qp->read(buffer1Sided, 0, remoteBufferToken, offset, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                infinity::queues::OperationFlags(), requests[k % MAX_OUTSTANDING_REQ]);
-      requests[k % MAX_OUTSTANDING_REQ]->waitUntilCompleted();
+                infinity::queues::OperationFlags(), &requestToken);
+      requestToken.waitUntilCompleted();
     }
 
     printf("Start Real Test \n");
     auto start = std::chrono::system_clock::now();
     int avaliable = MAX_OUTSTANDING_REQ;
     for (int k = 0; k < TEST_COUNT; k++) {
-        for(int multi_read_index = 0; multi_read_index < MULTI_READ_SIZE; multi_read_index ++){
+        for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
             int request_node = k;
             if(random){
                 request_node = rand() % NODE_COUNT;
@@ -159,33 +155,24 @@ int main(int argc, char **argv) {
         }
       
 
-        qp->multiRead(buffer1Sided, local_offsets, remoteBufferToken, remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                    infinity::queues::OperationFlags(), requests[k % MAX_OUTSTANDING_REQ], send_buffer);
-        avaliable -= 1;
-        end_request += 1;
-        if(avaliable == 0){
-            requests[k % MAX_OUTSTANDING_REQ]->waitUntilCompleted();
-            avaliable += 1;
-            start_request += 1;
+        if(k % CQ_MOD == CQ_MOD -1){
+            qp->multiRead(buffer1Sided, local_offsets, remoteBufferToken, remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                        infinity::queues::OperationFlags(), &requestToken, send_buffer);
+            requestToken.waitUntilCompleted();
+        }else{
+            qp->multiRead(buffer1Sided, local_offsets, remoteBufferToken, remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                        infinity::queues::OperationFlags(), nullptr, send_buffer);
+
         }
     }
-    start_request = start_request % MAX_OUTSTANDING_REQ;
-    end_request = min(end_request, MAX_OUTSTANDING_REQ);
 
-    std::cout <<" Start Request: " << start_request << "\tEnd Request " << end_request<< std::endl;
-    // make sure all finished
-    for (int k = start_request; k < end_request; k++) {
-        requests[k]->waitUntilCompleted();
-    }
-    
-    
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> diff = end - start;
-    printf("Avg Bandwidth is %f MB/s\n", MULTI_READ_SIZE * TEST_COUNT *  FEATURE_DIM * FEATURE_TYPE_SIZE / (1024.0 * 1024.0 ) / diff.count() );
+    printf("Avg Bandwidth is %f MB/s\n", POST_LIST_SIZE * TEST_COUNT *  FEATURE_DIM * FEATURE_TYPE_SIZE / (1024.0 * 1024.0 ) / diff.count() );
 
     printf("Sending message to remote host\n");
-    qp->send(buffer2Sided, requests[0]);
-    requests[0]->waitUntilCompleted();
+    qp->send(buffer2Sided, &requestToken);
+    requestToken.waitUntilCompleted();
 
     delete buffer1Sided;
     delete buffer2Sided;
