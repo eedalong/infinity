@@ -31,10 +31,10 @@
 #define NODE_COUNT 1000000
 #define FEATURE_DIM 512
 #define FEATURE_TYPE_SIZE 4
-#define TEST_COUNT 200
+#define TEST_COUNT 5000
 #define MAX_OUTSTANDING_REQ 1
 #define POST_LIST_SIZE 20
-#define CQ_MOD 10
+#define CQ_MOD 25
 
 int min(int a, int b){
     if(a < b){

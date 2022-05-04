@@ -20,7 +20,7 @@
 
 namespace infinity {
 namespace queues {
-class QueuePairFactory;
+	class QueuePairFactory;
 }
 }
 
