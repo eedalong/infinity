@@ -14,6 +14,7 @@
 #include <infinity/core/Context.h>
 #include <infinity/memory/Atomic.h>
 #include <infinity/memory/Buffer.h>
+#include <vector>
 #include <infinity/memory/RegionToken.h>
 #include <infinity/requests/RequestToken.h>
 
@@ -21,6 +22,23 @@ namespace infinity {
 namespace queues {
 class QueuePairFactory;
 }
+}
+
+namespace infinity {
+namespace queues {
+struct SendRequestBuffer {
+  std::vector<ibv_sge> sges;
+  std::vector<ibv_send_wr> requests;
+  SendRequestBuffer(int num) {
+    sges.resize(num);
+    requests.resize(num);
+  }
+  void reset() {
+    memset(sges.data(), 0, sizeof(ibv_sge));
+    memset(requests.data(), 0, sizeof(ibv_send_wr));
+  }
+};
+} // namespace queues
 }
 
 namespace infinity {
@@ -117,6 +135,9 @@ public:
 
 	void multiWrite(infinity::memory::Buffer **buffers, uint32_t *sizesInBytes, uint64_t *localOffsets, uint32_t numberOfElements,
 			infinity::memory::RegionToken *destination, uint64_t remoteOffset, OperationFlags flags, infinity::requests::RequestToken *requestToken = NULL);
+	
+	void multiRead(infinity::memory::Buffer *buffer, std::vector<uint64_t> &localOffset, infinity::memory::RegionToken *source, std::vector<uint64_t> &remoteOffset,
+			uint32_t sizeInBytes, OperationFlags send_flags, infinity::requests::RequestToken *requestToken, infinity::queues::SendRequestBuffer &send_buffer);
 
 	void sendWithImmediate(infinity::memory::Buffer *buffer, uint64_t localOffset, uint32_t sizeInBytes, uint32_t immediateValue,
 			OperationFlags flags, infinity::requests::RequestToken *requestToken = NULL);

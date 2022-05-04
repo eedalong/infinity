@@ -28,11 +28,12 @@
 #define PORT_NUMBER 3344
 #define SERVER_IP "155.198.152.17"
 
-#define NODE_COUNT 1
+#define NODE_COUNT 1000000
 #define FEATURE_DIM 512
 #define FEATURE_TYPE_SIZE 4
-#define TEST_COUNT 10
+#define TEST_COUNT 2
 #define MAX_OUTSTANDING_REQ 1
+#define MULTI_READ_SIZE 20
 
 
 
@@ -99,6 +100,10 @@ int main(int argc, char **argv) {
 
   } else {
 
+    std::vector<uint64_t> local_offsets(MULTI_READ_SIZE, 0);
+    std::vector<uint64_t> remote_offsets(MULTI_READ_SIZE, 0);
+    infinity::queues::SendRequestBuffer send_buffer(MULTI_READ_SIZE);
+
     printf("Connecting to remote node\n");
     qp = qpFactory->connectToRemoteHost(SERVER_IP, PORT_NUMBER);
     infinity::memory::RegionToken *remoteBufferToken =
@@ -107,7 +112,7 @@ int main(int argc, char **argv) {
     printf("Creating buffers\n");
     std::vector<infinity::memory::Buffer *> buffers;
     infinity::memory::Buffer *buffer1Sided =
-        new infinity::memory::Buffer(context, FEATURE_DIM * FEATURE_TYPE_SIZE);
+        new infinity::memory::Buffer(context, NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE);
     infinity::memory::Buffer *buffer2Sided = new infinity::memory::Buffer(context, 128 * sizeof(char));
 
 
@@ -133,37 +138,42 @@ int main(int argc, char **argv) {
     auto start = std::chrono::system_clock::now();
     int avaliable = MAX_OUTSTANDING_REQ;
     for (int k = 0; k < TEST_COUNT; k++) {
-      int request_node = k;
-      if(random){
-        request_node = rand() % NODE_COUNT;
-      }
+        for(int multi_read_index = 0; multi_read_index < MULTI_READ_SIZE; multi_read_index ++){
+            int request_node = k;
+            if(random){
+                request_node = rand() % NODE_COUNT;
+            }
+            uint64_t remote_node_offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
+            local_offsets[multi_read_index] = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
+            remote_offsets[multi_read_index] = remote_node_offset;
+        }
+      
 
-      uint64_t offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
-      qp->read(buffer1Sided, 0, remoteBufferToken, offset, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                infinity::queues::OperationFlags(), requests[k % 1000]);
-      avaliable -= 1;
-      if(avaliable == 0){
-        requests[k % MAX_OUTSTANDING_REQ]->waitUntilCompleted();
-        avaliable += 1;
-      }
+        qp->multiRead(buffer1Sided, local_offsets, remoteBufferToken, remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                    infinity::queues::OperationFlags(), requests[k % 1000], send_buffer);
+        avaliable -= 1;
+        if(avaliable == 0){
+            requests[k % MAX_OUTSTANDING_REQ]->waitUntilCompleted();
+            avaliable += 1;
+        }
     }
 
     // make sure all finished
-    for (int k = 0; k < MAX_OUTSTANDING_REQ; k++) {
-        requests[k % MAX_OUTSTANDING_REQ]->waitUntilCompleted();
+    for (int k = 0; k < MAX_OUTSTANDING_REQ - avaliable; k++) {
+        requests[k]->waitUntilCompleted();
     }
     
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> diff = end - start;
-    printf("Avg Bandwidth is %f MB/s\n", TEST_COUNT *  FEATURE_DIM * FEATURE_TYPE_SIZE / (1024.0 * 1024.0 ) / diff.count() );
+    printf("Avg Bandwidth is %f MB/s\n", MULTI_READ_SIZE * TEST_COUNT *  FEATURE_DIM * FEATURE_TYPE_SIZE / (1024.0 * 1024.0 ) / diff.count() );
 
     printf("Sending message to remote host\n");
-		qp->send(buffer2Sided, requests[0]);
-		requests[0]->waitUntilCompleted();
+    qp->send(buffer2Sided, requests[0]);
+    requests[0]->waitUntilCompleted();
 
-		delete buffer1Sided;
-		delete buffer2Sided;
+    delete buffer1Sided;
+    delete buffer2Sided;
   }
 
   delete qp;

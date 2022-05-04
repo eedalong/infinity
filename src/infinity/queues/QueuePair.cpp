@@ -485,6 +485,65 @@ void QueuePair::read(infinity::memory::Buffer* buffer, uint64_t localOffset, inf
 	INFINITY_DEBUG("[INFINITY][QUEUES][QUEUEPAIR] Read request created (id %lu).\n", workRequest.wr_id);
 
 }
+void QueuePair::multiRead(infinity::memory::Buffer *buffer,
+                        std::vector<uint64_t> &localOffset,
+                        infinity::memory::RegionToken *source,
+                        std::vector<uint64_t> &remoteOffset,
+                        uint32_t sizeInBytes, OperationFlags send_flags,
+                        infinity::requests::RequestToken *requestToken,
+                        infinity::queues::SendRequestBuffer &send_buffer) {
+
+  if (requestToken != NULL) {
+    requestToken->reset();
+    requestToken->setRegion(buffer);
+  }
+
+  send_buffer.reset();
+  struct ibv_send_wr *badWorkRequest;
+  int n = localOffset.size();
+
+  for (size_t i = 0; i < n; i++) {
+    send_buffer.sges[i].addr = buffer->getAddress() + localOffset[i];
+    send_buffer.sges[i].length = sizeInBytes;
+    send_buffer.sges[i].lkey = buffer->getLocalKey();
+    send_buffer.requests[i].sg_list = &send_buffer.sges[i];
+    send_buffer.requests[i].num_sge = 1;
+    send_buffer.requests[i].opcode = IBV_WR_RDMA_READ;
+    send_buffer.requests[i].send_flags = send_flags.ibvFlags();
+    send_buffer.requests[i].wr.rdma.remote_addr =
+        source->getAddress() + remoteOffset[i];
+    send_buffer.requests[i].wr.rdma.rkey = source->getRemoteKey();
+    send_buffer.requests[i].next =
+        (i == n - 1) ? nullptr : &send_buffer.requests[i + 1];
+  }
+  if (requestToken != NULL) {
+    send_buffer.requests[n - 1].wr_id =
+        reinterpret_cast<uint64_t>(requestToken);
+    send_buffer.requests[n - 1].send_flags |= IBV_SEND_SIGNALED;
+  }
+
+  INFINITY_ASSERT(sizeInBytes <=
+                      buffer->getRemainingSizeInBytes(localOffset[0]),
+                  "[INFINITY][QUEUES][QUEUEPAIR] Segmentation fault while "
+                  "creating scatter-getter element.\n");
+
+  INFINITY_ASSERT(sizeInBytes <=
+                      source->getRemainingSizeInBytes(remoteOffset[0]),
+                  "[INFINITY][QUEUES][QUEUEPAIR] Segmentation fault while "
+                  "reading from remote memory.\n");
+
+  int returnValue = ibv_post_send(this->ibvQueuePair, &send_buffer.requests[0],
+                                  &badWorkRequest);
+
+  INFINITY_ASSERT(
+      returnValue == 0,
+      "[INFINITY][QUEUES][QUEUEPAIR] Posting read request failed. %s.\n",
+      strerror(errno));
+
+  INFINITY_DEBUG(
+      "[INFINITY][QUEUES][QUEUEPAIR] Read request created (id %lu).\n",
+      send_buffer.requests[n - 1].wr_id);
+}
 
 void QueuePair::compareAndSwap(infinity::memory::RegionToken* destination, infinity::memory::Atomic* previousValue, uint64_t compare, uint64_t swap,
 		OperationFlags send_flags, infinity::requests::RequestToken *requestToken) {
