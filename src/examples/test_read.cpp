@@ -14,7 +14,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <vector>
+#include <iostream>
 
 #include <infinity/core/Context.h>
 #include <infinity/memory/Buffer.h>
@@ -26,6 +28,14 @@
 #define PORT_NUMBER 3344
 #define SERVER_IP "155.198.152.17"
 
+#define NODE_COUNT 1000000
+#define FEATURE_DIM 512
+#define FEATURE_TYPE_SIZE 4
+#define TEST_COUNT 10000
+#define MAX_OUTSTANDING_REQ 1000
+
+
+
 uint64_t timeDiff(struct timeval stop, struct timeval start) {
   return (stop.tv_sec * 1000000L + stop.tv_usec) -
          (start.tv_sec * 1000000L + start.tv_usec);
@@ -35,15 +45,19 @@ uint64_t timeDiff(struct timeval stop, struct timeval start) {
 int main(int argc, char **argv) {
 
   bool isServer = false;
+  bool random = false;
 
   while (argc > 1) {
     if (argv[1][0] == '-') {
       switch (argv[1][1]) {
-
-      case 's': {
-        isServer = true;
-        break;
-      }
+        case 's': {
+          isServer = true;
+          break;
+        }
+        case 'r': {
+          random = true;
+          break;
+        }
       }
     }
     ++argv;
@@ -58,15 +72,16 @@ int main(int argc, char **argv) {
   if (isServer) {
 
     printf("Creating buffers to read from and write to\n");
+    std::cout << "Server Buffer Size " << NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE << std::endl;
     infinity::memory::Buffer *bufferToReadWrite =
-        new infinity::memory::Buffer(context, 512 * sizeof(char));
+        new infinity::memory::Buffer(context, NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE);
     infinity::memory::RegionToken *bufferToken =
         bufferToReadWrite->createRegionToken();
-
+    
     printf("Creating buffers to receive a message\n");
-    infinity::memory::Buffer *bufferToReceive =
-        new infinity::memory::Buffer(context, 128 * sizeof(char));
-    context->postReceiveBuffer(bufferToReceive);
+		infinity::memory::Buffer *bufferToReceive = new infinity::memory::Buffer(context, 128 * sizeof(char));
+		context->postReceiveBuffer(bufferToReceive);
+
 
     printf("Setting up connection (blocking)\n");
     qpFactory->bindToPort(PORT_NUMBER);
@@ -92,51 +107,63 @@ int main(int argc, char **argv) {
     printf("Creating buffers\n");
     std::vector<infinity::memory::Buffer *> buffers;
     infinity::memory::Buffer *buffer1Sided =
-        new infinity::memory::Buffer(context, (size_t)512 * sizeof(char));
+        new infinity::memory::Buffer(context, FEATURE_DIM * FEATURE_TYPE_SIZE);
+    infinity::memory::Buffer *buffer2Sided = new infinity::memory::Buffer(context, 128 * sizeof(char));
+
 
     printf("Reading content from remote buffer\n");
     std::vector<infinity::requests::RequestToken *> requests;
     for (int i = 0; i < 1000; i++) {
       requests.push_back(new infinity::requests::RequestToken(context));
-      printf("reading %d", i);
     }
-    uint64_t cnt = 0;
-    for (int i = 0; i < 100; i++) {
-      struct timeval start;
-      struct timeval stop;
-      uint64_t cur = 0;
-      for (int j = 0; j < 100; j++) {
-        gettimeofday(&start, NULL);
-        for (int k = 0; k < 1000; k++) {
-          qp->read(buffer1Sided, 0, remoteBufferToken, 0, 512,
-                   infinity::queues::OperationFlags(), requests[k]);
-        }
-        gettimeofday(&stop, NULL);
-        cur += timeDiff(stop, start);
-		for (int k = 0; k < 1000; k++) {
-			requests[k]->waitUntilCompleted();
-		}
+
+    // warm up
+
+    printf("A little Warmup \n");
+    for (int k = 0; k < 10; k++) {
+      int request_node = rand() % NODE_COUNT;
+      uint64_t offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
+      //std::cout << "Getting Data From " << offset << " To " << offset + FEATURE_DIM * FEATURE_TYPE_SIZE << std::endl;
+      qp->read(buffer1Sided, 0, remoteBufferToken, offset, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                infinity::queues::OperationFlags(), requests[k]);
+      requests[k]->waitUntilCompleted();
+    }
+
+    printf("Start Real Test \n");
+    auto start = std::chrono::system_clock::now();
+    int avaliable = MAX_OUTSTANDING_REQ;
+    for (int k = 0; k < TEST_COUNT; k++) {
+      int request_node = k;
+      if(random){
+        request_node = rand() % NODE_COUNT;
       }
 
-      printf("Cur 50MB took %lu\n", cur);
-      cnt += cur;
+      uint64_t offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
+      qp->read(buffer1Sided, 0, remoteBufferToken, offset, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                infinity::queues::OperationFlags(), requests[k % 1000]);
+      avaliable -= 1;
+      if(avaliable == 0){
+        requests[k % MAX_OUTSTANDING_REQ]->waitUntilCompleted();
+        avaliable += 1;
+      }
     }
 
-    printf("Avg 50MB took %lu\n", cnt / 100);
+    // make sure all finished
+    for (int k = 0; k < MAX_OUTSTANDING_REQ; k++) {
+        requests[k % MAX_OUTSTANDING_REQ]->waitUntilCompleted();
+    }
+    
 
-    // printf("Writing content to remote buffer\n");
-    // qp->write(buffer1Sided, remoteBufferToken, &requestToken);
-    // requestToken.waitUntilCompleted();
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> diff = end - start;
+    printf("Avg Bandwidth is %f MB/s\n", TEST_COUNT *  FEATURE_DIM * FEATURE_TYPE_SIZE / (1024 * 1024 ) / diff.count() );
 
     printf("Sending message to remote host\n");
-    infinity::requests::RequestToken requestToken(context);
-    infinity::memory::Buffer *buffer2Sided =
-        new infinity::memory::Buffer(context, 128 * sizeof(char));
-    qp->send(buffer2Sided, &requestToken);
-    requestToken.waitUntilCompleted();
+		qp->send(buffer2Sided, requests[0]);
+		requests[0]->waitUntilCompleted();
 
-    delete buffer1Sided;
-    delete buffer2Sided;
+		delete buffer1Sided;
+		delete buffer2Sided;
   }
 
   delete qp;
