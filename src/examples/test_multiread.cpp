@@ -31,10 +31,18 @@
 #define NODE_COUNT 1000000
 #define FEATURE_DIM 512
 #define FEATURE_TYPE_SIZE 4
-#define TEST_COUNT 2
-#define MAX_OUTSTANDING_REQ 1
+#define TEST_COUNT 200
+#define MAX_OUTSTANDING_REQ 4
 #define MULTI_READ_SIZE 20
 
+
+
+int min(int a, int b){
+    if(a < b){
+        return a;
+    }
+    return b;
+}
 
 
 uint64_t timeDiff(struct timeval stop, struct timeval start) {
@@ -102,6 +110,8 @@ int main(int argc, char **argv) {
 
     std::vector<uint64_t> local_offsets(MULTI_READ_SIZE, 0);
     std::vector<uint64_t> remote_offsets(MULTI_READ_SIZE, 0);
+    int start_request = 0;
+    int end_request = 0;
     infinity::queues::SendRequestBuffer send_buffer(MULTI_READ_SIZE);
 
     printf("Connecting to remote node\n");
@@ -118,7 +128,7 @@ int main(int argc, char **argv) {
 
     printf("Reading content from remote buffer\n");
     std::vector<infinity::requests::RequestToken *> requests;
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < MAX_OUTSTANDING_REQ; i++) {
       requests.push_back(new infinity::requests::RequestToken(context));
     }
 
@@ -130,8 +140,8 @@ int main(int argc, char **argv) {
       uint64_t offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
       //std::cout << "Getting Data From " << offset << " To " << offset + FEATURE_DIM * FEATURE_TYPE_SIZE << std::endl;
       qp->read(buffer1Sided, 0, remoteBufferToken, offset, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                infinity::queues::OperationFlags(), requests[k]);
-      requests[k]->waitUntilCompleted();
+                infinity::queues::OperationFlags(), requests[k % MAX_OUTSTANDING_REQ]);
+      requests[k % MAX_OUTSTANDING_REQ]->waitUntilCompleted();
     }
 
     printf("Start Real Test \n");
@@ -150,20 +160,25 @@ int main(int argc, char **argv) {
       
 
         qp->multiRead(buffer1Sided, local_offsets, remoteBufferToken, remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                    infinity::queues::OperationFlags(), requests[k % 1000], send_buffer);
+                    infinity::queues::OperationFlags(), requests[k % MAX_OUTSTANDING_REQ], send_buffer);
         avaliable -= 1;
+        end_request += 1;
         if(avaliable == 0){
             requests[k % MAX_OUTSTANDING_REQ]->waitUntilCompleted();
             avaliable += 1;
+            start_request += 1;
         }
     }
+    start_request = start_request % MAX_OUTSTANDING_REQ;
+    end_request = min(end_request, MAX_OUTSTANDING_REQ);
 
+    std::cout <<" Start Request: " << start_request << "\tEnd Request " << end_request<< std::endl;
     // make sure all finished
-    for (int k = 0; k < MAX_OUTSTANDING_REQ - avaliable; k++) {
+    for (int k = start_request; k < end_request; k++) {
         requests[k]->waitUntilCompleted();
     }
     
-
+    
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> diff = end - start;
     printf("Avg Bandwidth is %f MB/s\n", MULTI_READ_SIZE * TEST_COUNT *  FEATURE_DIM * FEATURE_TYPE_SIZE / (1024.0 * 1024.0 ) / diff.count() );
