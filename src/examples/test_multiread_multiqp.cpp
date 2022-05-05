@@ -38,7 +38,7 @@
 // We must assure TX_DEPTH % POST_LIST_SIZE = 0
 #define POST_LIST_SIZE 32
 #define CQ_MOD 32
-#define QP_NUM 8
+#define QP_NUM 4
 #define CTX_POLL_BATCH 16
 #define TX_DEPTH 128
 
@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
     infinity::requests::RequestToken requestToken(context);
 
     std::vector<infinity::requests::RequestToken *> requests;
-    for (int i = 0; i < TX_DEPTH; i++) {
+    for (int i = 0; i < TX_DEPTH / CQ_MOD; i++) {
       requests.push_back(new infinity::requests::RequestToken(context));
     }
 
@@ -164,8 +164,8 @@ int main(int argc, char **argv) {
       uint64_t offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
       //std::cout << "Getting Data From " << offset << " To " << offset + FEATURE_DIM * FEATURE_TYPE_SIZE << std::endl;
       qps[k % QP_NUM]->read(buffer1Sided, 0, remoteBufferTokens[k % QP_NUM], offset, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                infinity::queues::OperationFlags(), requests[k % TX_DEPTH]);
-      requests[k % TX_DEPTH] -> waitUntilCompleted();
+                infinity::queues::OperationFlags(), requests[k % (TX_DEPTH / CQ_MOD)]);
+      requests[k % (TX_DEPTH / CQ_MOD)] -> waitUntilCompleted();
     }
 
     printf("Start Real Test \n");
@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
 
         
         qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                    infinity::queues::OperationFlags(), requests[ k % TX_DEPTH], send_buffer, CQ_MOD);
+                    infinity::queues::OperationFlags(), requests[ k % (TX_DEPTH / CQ_MOD)], send_buffer, CQ_MOD);
         epoch_scnt += POST_LIST_SIZE;
         if(epoch_scnt ==  TX_DEPTH){
             context -> batchPollSendCompletionQueue(CTX_POLL_BATCH, TX_DEPTH / CQ_MOD, wc_buffer.ptr());

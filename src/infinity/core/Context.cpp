@@ -192,7 +192,7 @@ void Context::batchPollSendCompletionQueue(int poll_batch, int expected_num, ibv
 
 	while(expected_num > 0){
 		int ne = ibv_poll_cq(this->ibvSendCompletionQueue, poll_batch, wc);
-		if(ne > 0){
+		if(ne >= 0){
 			expected_num -= ne;
 			for (int i = 0; i < ne; i++) {
 				int wc_id = (int)wc[i].wr_id;
