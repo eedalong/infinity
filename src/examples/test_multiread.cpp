@@ -29,9 +29,9 @@
 #define SERVER_IP "155.198.152.17"
 
 #define NODE_COUNT 1000000
-#define FEATURE_DIM 512
+#define FEATURE_DIM 128
 #define FEATURE_TYPE_SIZE 4
-#define TEST_COUNT 5000
+#define TEST_COUNT 350000
 #define MAX_OUTSTANDING_REQ 1
 #define POST_LIST_SIZE 20
 #define CQ_MOD 25
@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> diff = end - start;
-    printf("Avg Bandwidth is %f MB/s\n", POST_LIST_SIZE * TEST_COUNT *  FEATURE_DIM * FEATURE_TYPE_SIZE / (1024.0 * 1024.0 ) / diff.count() );
+    printf("Avg Bandwidth is %f MB/s\n", (POST_LIST_SIZE * TEST_COUNT *  FEATURE_DIM/ (1024.0 * 1024.0 ) ) * FEATURE_TYPE_SIZE / diff.count() );
 
     printf("Sending message to remote host\n");
     qp->send(buffer2Sided, &requestToken);
