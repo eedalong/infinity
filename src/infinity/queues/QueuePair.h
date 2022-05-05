@@ -26,6 +26,7 @@ namespace queues {
 
 namespace infinity {
 namespace queues {
+
 struct SendRequestBuffer {
   std::vector<ibv_sge> sges;
   std::vector<ibv_send_wr> requests;
@@ -37,6 +38,27 @@ struct SendRequestBuffer {
     memset(sges.data(), 0, sizeof(ibv_sge));
     memset(requests.data(), 0, sizeof(ibv_send_wr));
   }
+};
+} // namespace queues
+}
+
+namespace infinity {
+namespace queues {
+
+struct IbvWcBuffer {
+  ibv_wc* wc;
+  int size_;
+  IbvWcBuffer(int size) {
+	  wc = (ibv_wc*) malloc(sizeof(ibv_wc) * size);
+	  size_ = size;
+  }
+  ibv_wc* ptr(){
+	  return wc;
+  }
+  int size(){
+	  return size_;
+  }
+
 };
 } // namespace queues
 }
@@ -137,7 +159,7 @@ public:
 			infinity::memory::RegionToken *destination, uint64_t remoteOffset, OperationFlags flags, infinity::requests::RequestToken *requestToken = NULL);
 	
 	void multiRead(infinity::memory::Buffer *buffer, std::vector<uint64_t> &localOffset, infinity::memory::RegionToken *source, std::vector<uint64_t> &remoteOffset,
-			uint32_t sizeInBytes, OperationFlags send_flags, infinity::requests::RequestToken *requestToken, infinity::queues::SendRequestBuffer &send_buffer);
+			uint32_t sizeInBytes, OperationFlags send_flags, infinity::requests::RequestToken *requestToken, infinity::queues::SendRequestBuffer &send_buffer, int cq_mod);
 
 	void sendWithImmediate(infinity::memory::Buffer *buffer, uint64_t localOffset, uint32_t sizeInBytes, uint32_t immediateValue,
 			OperationFlags flags, infinity::requests::RequestToken *requestToken = NULL);

@@ -188,6 +188,28 @@ bool Context::pollSendCompletionQueue() {
 
 }
 
+void Context::batchPollSendCompletionQueue(int poll_batch, int expected_num, ibv_wc* wc) {
+
+	while(expected_num > 0){
+		int ne = ibv_poll_cq(this->ibvSendCompletionQueue, poll_batch, wc);
+		if(ne > 0){
+			expected_num -= ne;
+			for (int i = 0; i < ne; i++) {
+				int wc_id = (int)wc[i].wr_id;
+				if (wc[i].status != IBV_WC_SUCCESS) {
+					fprintf(stderr, "Request failed %d\n",wc_id);
+				}
+			}
+
+		}else{
+			fprintf(stderr, "poll CQ failed %d\n",ne);
+		}
+
+	}
+
+}
+
+
 void Context::registerQueuePair(infinity::queues::QueuePair* queuePair) {
 	this->queuePairMap.insert({queuePair->getQueuePairNumber(), queuePair});
 }
