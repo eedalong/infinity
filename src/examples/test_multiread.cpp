@@ -53,7 +53,7 @@ uint64_t timeDiff(struct timeval stop, struct timeval start) {
 int main(int argc, char **argv) {
 
   bool isServer = false;
-  bool random = false;
+  bool random = true;
 
   while (argc > 1) {
     if (argv[1][0] == '-') {
@@ -62,14 +62,19 @@ int main(int argc, char **argv) {
           isServer = true;
           break;
         }
-        case 'r': {
-          random = true;
+        case 'l': {
+          random = false;
           break;
         }
       }
     }
     ++argv;
     --argc;
+  }
+  if(random){
+    printf("Test Random Data Access \n");
+  }else{
+    printf("Test Sequential Data Access \n");
   }
 
   infinity::core::Context *context = new infinity::core::Context();
@@ -130,7 +135,7 @@ int main(int argc, char **argv) {
 
     // warm up
 
-    printf("A little Warmup \n");
+    printf("Warm up\n");
     for (int k = 0; k < 10; k++) {
       int request_node = rand() % NODE_COUNT;
       uint64_t offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
@@ -145,7 +150,7 @@ int main(int argc, char **argv) {
     int avaliable = MAX_OUTSTANDING_REQ;
     for (int k = 0; k < TEST_COUNT; k++) {
         for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
-            int request_node = k;
+            int request_node = (k + multi_read_index) % NODE_COUNT;
             if(random){
                 request_node = rand() % NODE_COUNT;
             }

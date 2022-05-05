@@ -95,7 +95,7 @@ void QueuePair::activate(uint16_t remoteDeviceId, uint32_t remoteQueuePairNumber
 	qpAttributes.path_mtu = IBV_MTU_4096;
 	qpAttributes.dest_qp_num = remoteQueuePairNumber;
 	qpAttributes.rq_psn = remoteSequenceNumber;
-	qpAttributes.max_dest_rd_atomic = 1;
+	qpAttributes.max_dest_rd_atomic = 16;
 	qpAttributes.min_rnr_timer = 12;
 	qpAttributes.ah_attr.is_global = 0;
 	qpAttributes.ah_attr.dlid = remoteDeviceId;
