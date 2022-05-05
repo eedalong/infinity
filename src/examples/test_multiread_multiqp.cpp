@@ -177,7 +177,7 @@ int main(int argc, char **argv) {
           std::sort(remote_offsets.begin(), remote_offsets.end());
         }
 
-        if(k % (CQ_MOD * QP_NUM) == (QP_NUM * CQ_MOD -1)){
+        if(k % CQ_MOD ==  CQ_MOD -1){
             qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
                         infinity::queues::OperationFlags(), &requestToken, send_buffer);
             requestToken.waitUntilCompleted();
