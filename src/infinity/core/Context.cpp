@@ -179,7 +179,7 @@ bool Context::pollSendCompletionQueue() {
 		if (wc.status == IBV_WC_SUCCESS) {
 			INFINITY_DEBUG("[INFINITY][CORE][CONTEXT] Request completed (id %lu).\n", wc.wr_id);
 		} else {
-			INFINITY_DEBUG("[INFINITY][CORE][CONTEXT] Request failed (id %lu).\n", wc.wr_id);
+			fprintf(stderr, "[INFINITY][CORE][CONTEXT] Request failed (id %lu).\n", wc.wr_id);
 		}
 		return true;
 	}
