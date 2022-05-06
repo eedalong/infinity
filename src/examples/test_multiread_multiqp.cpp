@@ -29,16 +29,17 @@
 #define PORT_NUMBER 3344
 #define SERVER_IP "155.198.152.17"
 
-#define NODE_COUNT 100000000LL
+#define NODE_COUNT 500000000LL
 #define FEATURE_DIM 128LL
 #define FEATURE_TYPE_SIZE 4LL
 #define TEST_COUNT 8192LL
 #define ITER_NUM 1000LL
 #define POST_LIST_SIZE 16LL
-#define CQ_MOD 8LL
-#define QP_NUM 4LL
-#define TX_DEPTH 256LL
+#define CQ_MOD 16LL
+#define QP_NUM 16LL
+#define TX_DEPTH 2048LL
 #define CTX_POLL_BATCH 16LL
+
 int min(int a, int b){
     if(a < b){
         return a;
