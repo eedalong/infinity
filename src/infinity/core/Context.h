@@ -82,6 +82,11 @@ public:
 	 */
 	void postReceiveBuffer(infinity::memory::Buffer *buffer);
 
+	/*
+		Poll expected signal from completion queue
+	*/
+	void batchPollSendCompletionQueue(int poll_batch, int expected_num, ibv_wc* wc);
+
 public:
 
 	infinity::requests::RequestToken * defaultRequestToken;

@@ -1,0 +1,1 @@
+./release/examples/test_multiread_multiqp -s

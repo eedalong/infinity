@@ -44,6 +44,28 @@ struct SendRequestBuffer {
 namespace infinity {
 namespace queues {
 
+struct IbvWcBuffer {
+  ibv_wc* wc;
+  int size_;
+  IbvWcBuffer(int size) {
+	  wc = (ibv_wc*) malloc(sizeof(ibv_wc) * size);
+	  size_ = size;
+  }
+  ibv_wc* ptr(){
+	  return wc;
+  }
+  int size(){
+	  return size_;
+  }
+
+};
+} // namespace queues
+}
+
+
+namespace infinity {
+namespace queues {
+
 class OperationFlags {
 
 public:
