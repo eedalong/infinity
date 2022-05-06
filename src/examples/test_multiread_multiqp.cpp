@@ -211,7 +211,9 @@ int main(int argc, char **argv) {
     }
 
     printf("Start Real Test \n");
-    auto start = std::chrono::system_clock::now();
+    //auto start = std::chrono::system_clock::now();
+    struct timeval start;
+		gettimeofday(&start, NULL);
     if(sort_index){
   
       std::vector<int> all_request_nodes(TEST_COUNT * POST_LIST_SIZE);
@@ -220,7 +222,7 @@ int main(int argc, char **argv) {
       }
       std::sort(all_request_nodes.begin(), all_request_nodes.end());
 
-      start = std::chrono::system_clock::now();
+      gettimeofday(&start, NULL);
       for(int iter_index = 0; iter_index < ITER_NUM; iter_index ++){
         for (int k = 0; k < TEST_COUNT; k++) {
           for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
@@ -276,9 +278,10 @@ int main(int argc, char **argv) {
       }
     }
 
-    auto end = std::chrono::system_clock::now();
-    std::chrono::duration<double> diff = end - start;
-    printf("Avg Bandwidth is %f MB/s\n", (POST_LIST_SIZE * TEST_COUNT *  FEATURE_DIM/ (1024.0 * 1024.0) ) * FEATURE_TYPE_SIZE * ITER_NUM / diff.count() );
+    struct timeval stop;
+		gettimeofday(&stop, NULL);
+    uint64_t time = timeDiff(stop, start);
+    printf("Avg Bandwidth is %f MB/s\n", (POST_LIST_SIZE * TEST_COUNT *  FEATURE_DIM/ (1024.0 * 1024.0) ) * FEATURE_TYPE_SIZE * ITER_NUM / (((double) time) / 1000000L) );
 
     printf("Sending message to remote host from QueuePair %d\n", QP_NUM-1);
     qps[QP_NUM-1]->send(buffer2Sided, &requestToken);
