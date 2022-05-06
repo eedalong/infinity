@@ -161,30 +161,57 @@ int main(int argc, char **argv) {
 
     printf("Start Real Test \n");
     auto start = std::chrono::system_clock::now();
-    int avaliable = MAX_OUTSTANDING_REQ;
-    for (int k = 0; k < TEST_COUNT; k++) {
-        for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
-            int request_node = (k + multi_read_index) % NODE_COUNT;
-            if(random){
-                request_node = rand() % NODE_COUNT;
-            }
-            uint64_t remote_node_offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
-            local_offsets[multi_read_index] = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
-            remote_offsets[multi_read_index] = remote_node_offset;
-        }
-        if(sort_index){
-          std::sort(local_offsets.begin(), local_offsets.end());
-          std::sort(remote_offsets.begin(), remote_offsets.end());
-        }
+    if(sort_index){
+  
+      std::vector<int> all_request_nodes(TEST_COUNT * POST_LIST_SIZE);
+      for(int i=0; i < TEST_COUNT * POST_LIST_SIZE; i ++){
+        int request_node = rand() % NODE_COUNT;
+      }
+      std::sort(all_request_nodes.begin(), all_request_nodes.end());
 
-        if(k % CQ_MOD ==  CQ_MOD -1){
-            qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                        infinity::queues::OperationFlags(), &requestToken, send_buffer);
-            requestToken.waitUntilCompleted();
-        }else{
-            qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                        infinity::queues::OperationFlags(), nullptr, send_buffer);
-        }
+      start = std::chrono::system_clock::now();
+      for (int k = 0; k < TEST_COUNT; k++) {
+          for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
+              uint64_t remote_node_offset = all_request_nodes[k * POST_LIST_SIZE + multi_read_index] * FEATURE_DIM * FEATURE_TYPE_SIZE;
+              local_offsets[multi_read_index] = all_request_nodes[k * POST_LIST_SIZE + multi_read_index] * FEATURE_DIM * FEATURE_TYPE_SIZE;
+              remote_offsets[multi_read_index] = remote_node_offset;
+          }
+
+          if(k % CQ_MOD ==  CQ_MOD -1){
+              qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                          infinity::queues::OperationFlags(), &requestToken, send_buffer);
+              requestToken.waitUntilCompleted();
+          }else{
+              qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                          infinity::queues::OperationFlags(), nullptr, send_buffer);
+          }
+      }
+    }
+    else{
+      for (int k = 0; k < TEST_COUNT; k++) {
+          for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
+              int request_node = (k + multi_read_index) % NODE_COUNT;
+              if(random){
+                  request_node = rand() % NODE_COUNT;
+              }
+              uint64_t remote_node_offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
+              local_offsets[multi_read_index] = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
+              remote_offsets[multi_read_index] = remote_node_offset;
+          }
+          if(sort_index){
+            std::sort(local_offsets.begin(), local_offsets.end());
+            std::sort(remote_offsets.begin(), remote_offsets.end());
+          }
+
+          if(k % CQ_MOD ==  CQ_MOD -1){
+              qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                          infinity::queues::OperationFlags(), &requestToken, send_buffer);
+              requestToken.waitUntilCompleted();
+          }else{
+              qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                          infinity::queues::OperationFlags(), nullptr, send_buffer);
+          }
+      }
     }
 
     auto end = std::chrono::system_clock::now();
