@@ -215,10 +215,6 @@ int main(int argc, char **argv) {
                 local_offsets[multi_read_index] = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
                 remote_offsets[multi_read_index] = remote_node_offset;
             }
-            if(sort_index){
-              std::sort(local_offsets.begin(), local_offsets.end());
-              std::sort(remote_offsets.begin(), remote_offsets.end());
-            }
 
             if(k % CQ_MOD ==  CQ_MOD -1){
                 qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
