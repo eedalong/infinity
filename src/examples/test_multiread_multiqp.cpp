@@ -29,17 +29,16 @@
 #define PORT_NUMBER 3344
 #define SERVER_IP "155.198.152.17"
 
-#define NODE_COUNT 1000000
-#define FEATURE_DIM 128
-#define FEATURE_TYPE_SIZE 4
-#define TEST_COUNT 8192
-#define ITER_NUM 1000
-#define POST_LIST_SIZE 16
-#define CQ_MOD 8
-#define QP_NUM 4
-#define TX_DEPTH 256
-#define CTX_POLL_BATCH 16
-
+#define NODE_COUNT 100000000LL
+#define FEATURE_DIM 128LL
+#define FEATURE_TYPE_SIZE 4LL
+#define TEST_COUNT 8192LL
+#define ITER_NUM 1000LL
+#define POST_LIST_SIZE 16LL
+#define CQ_MOD 8LL
+#define QP_NUM 4LL
+#define TX_DEPTH 256LL
+#define CTX_POLL_BATCH 16LL
 int min(int a, int b){
     if(a < b){
         return a;
@@ -88,7 +87,7 @@ bool mem_check(uint8_t* data_buffer){
       for(int dim = 0; dim < FEATURE_DIM; dim ++){
         //std::cout<< *((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE))<< " ";
         if (*((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)) != 0 && *((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)) != index){
-          fprintf(stderr, "At %ld: Epected %d, But got %d\n", start / FEATURE_DIM * FEATURE_TYPE_SIZE , index, *((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)));
+          fprintf(stderr, "At %lld: Epected %d, But got %d\n", start / FEATURE_DIM * FEATURE_TYPE_SIZE , index, *((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)));
           return false;
         }
       }
@@ -288,7 +287,7 @@ int main(int argc, char **argv) {
 
     printf("Avg Bandwidth is %f MB/s\n", (POST_LIST_SIZE * TEST_COUNT *  FEATURE_DIM/ (1024.0 * 1024.0) ) * FEATURE_TYPE_SIZE * ITER_NUM / (((double) time_consumed) / 1000000L) );
 
-    printf("Sending message to remote host from QueuePair %d\n", QP_NUM-1);
+    printf("Sending message to remote host from QueuePair %lld\n", QP_NUM-1);
     qps[QP_NUM-1]->send(buffer2Sided, &requestToken);
     requestToken.waitUntilCompleted();
 
