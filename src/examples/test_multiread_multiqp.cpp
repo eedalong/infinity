@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
       int request_node = rand() % NODE_COUNT;
       uint64_t offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
       //std::cout << "Getting Data From " << offset << " To " << offset + FEATURE_DIM * FEATURE_TYPE_SIZE << std::endl;
-      qps[k % QP_NUM]->read(buffer1Sided, 0, remoteBufferTokens[k % QP_NUM], offset, FEATURE_DIM * FEATURE_TYPE_SIZE,
+      qps[k % QP_NUM]->read(buffer1Sided, offset, remoteBufferTokens[k % QP_NUM], offset, FEATURE_DIM * FEATURE_TYPE_SIZE,
                 infinity::queues::OperationFlags(), requests[k % REQUEST_BUFFER_SIZE]);
       requests[k % REQUEST_BUFFER_SIZE]->waitUntilCompleted();
     }
@@ -225,7 +225,6 @@ int main(int argc, char **argv) {
         all_request_nodes[i] = rand() % NODE_COUNT;
       }
       std::sort(all_request_nodes.begin(), all_request_nodes.end());
-
       gettimeofday(&start, NULL);
       for(int iter_index = 0; iter_index < ITER_NUM; iter_index ++){
         for (int k = 0; k < TEST_COUNT; k++) {
@@ -246,7 +245,7 @@ int main(int argc, char **argv) {
           }
           if(epoch_scnt ==  REQUEST_BUFFER_SIZE){
             epoch_scnt = 0;
-            context->batchPollSendCompletionQueue(16, REQUEST_BUFFER_SIZE, wc_buffer.ptr());
+            context->batchPollSendCompletionQueue(CTX_POLL_BATCH, REQUEST_BUFFER_SIZE, wc_buffer.ptr());
           }
         }
 
@@ -277,7 +276,7 @@ int main(int argc, char **argv) {
             }
             if(epoch_scnt == REQUEST_BUFFER_SIZE){
               epoch_scnt = 0;
-              context->batchPollSendCompletionQueue(16, REQUEST_BUFFER_SIZE, wc_buffer.ptr());
+              context->batchPollSendCompletionQueue(CTX_POLL_BATCH, REQUEST_BUFFER_SIZE, wc_buffer.ptr());
             }
         }
       }
