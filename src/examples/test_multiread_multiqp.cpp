@@ -36,7 +36,7 @@
 #define MAX_OUTSTANDING_REQ 1
 #define POST_LIST_SIZE 32
 #define CQ_MOD 25
-#define QP_NUM 8
+#define QP_NUM 4
 
 int min(int a, int b){
     if(a < b){
