@@ -53,6 +53,47 @@ uint64_t timeDiff(struct timeval stop, struct timeval start) {
          (start.tv_sec * 1000000L + start.tv_usec);
 }
 
+
+uint8_t* allocate_feature(bool set_value){
+  uint8_t* buffer = (uint8_t*) malloc(NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE);
+  if(set_value){
+    int index = 0;
+    for(u_int64_t start=0; start < NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE; start += FEATURE_DIM * FEATURE_TYPE_SIZE){
+      for(int dim = 0; dim < FEATURE_DIM; dim ++){
+        *((int*)(buffer + start + dim * FEATURE_TYPE_SIZE)) = index;
+      }
+      index += 1;
+    }
+  }else{
+    memset(buffer, 0, NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE);
+  }
+  return buffer;
+}
+
+bool mem_check(uint8_t* data_buffer){
+    int index = 0;
+    bool have_valid_data = false; 
+    for(u_int64_t start=0; start < NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE; start += FEATURE_DIM * FEATURE_TYPE_SIZE){
+      for(int dim = 0; dim < FEATURE_DIM; dim ++){
+        if (*((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)) != 0){
+          have_valid_data = true;
+        }
+      }
+    }
+
+    for(u_int64_t start=0; start < NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE; start += FEATURE_DIM * FEATURE_TYPE_SIZE){
+      for(int dim = 0; dim < FEATURE_DIM; dim ++){
+        //std::cout<< *((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE))<< " ";
+        if (*((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)) != 0 && *((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)) != index){
+          return false;
+        }
+      }
+      //std::cout<<std::endl;
+      index += 1;
+    }
+    return have_valid_data & true;
+}
+
 // Usage: ./progam -s for server and ./program for client component
 int main(int argc, char **argv) {
 
@@ -99,8 +140,9 @@ int main(int argc, char **argv) {
 
     printf("Creating buffers to read from and write to\n");
     std::cout << "Server Buffer Size " << NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE << std::endl;
+    uint8_t* server_data_buffer = allocate_feature(true);
     infinity::memory::Buffer *bufferToReadWrite =
-        new infinity::memory::Buffer(context, NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE);
+        new infinity::memory::Buffer(context, server_data_buffer, NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE);
     infinity::memory::RegionToken *bufferToken =
         bufferToReadWrite->createRegionToken();
     
@@ -148,8 +190,8 @@ int main(int argc, char **argv) {
 
     printf("Creating buffers\n");
     std::vector<infinity::memory::Buffer *> buffers;
-    infinity::memory::Buffer *buffer1Sided =
-        new infinity::memory::Buffer(context, NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE);
+    uint8_t* client_data_buffer = allocate_feature(false);
+    infinity::memory::Buffer *buffer1Sided = new infinity::memory::Buffer(context, client_data_buffer, NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE);
     infinity::memory::Buffer *buffer2Sided = new infinity::memory::Buffer(context, 128 * sizeof(char));
 
 
@@ -242,6 +284,12 @@ int main(int argc, char **argv) {
     qps[QP_NUM-1]->send(buffer2Sided, &requestToken);
     requestToken.waitUntilCompleted();
 
+    printf("Memory checking..., Please wait...\n");
+    if(!mem_check(client_data_buffer)){
+      fprintf(stderr, "Memory Check Failed, Benchmark Failed!\n");
+    }else{
+      printf("Memory check success! Congrats!\n");
+    }
 
     delete buffer1Sided;
     delete buffer2Sided;
