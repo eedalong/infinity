@@ -222,11 +222,16 @@ int main(int argc, char **argv) {
 
             if(k % CQ_MOD ==  CQ_MOD -1){
                 qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                            infinity::queues::OperationFlags(), &requestToken, send_buffer);
-                requestToken.waitUntilCompleted();
+                            infinity::queues::OperationFlags(), requests[epoch_scnt], send_buffer);
+                epoch_scnt += 1;
+
             }else{
                 qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
                             infinity::queues::OperationFlags(), nullptr, send_buffer);
+            }
+            if(epoch_scnt == TX_DEPTH){
+              epoch_scnt = 0;
+              context->batchPollSendCompletionQueue(16, TX_DEPTH, wc_buffer.ptr());
             }
         }
       }
