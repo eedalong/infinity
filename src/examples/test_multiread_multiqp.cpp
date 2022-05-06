@@ -33,14 +33,15 @@
 #define FEATURE_DIM 512
 #define FEATURE_TYPE_SIZE 4
 #define TEST_COUNT 35000
-#define MAX_OUTSTANDING_REQ 1
+
 // We must assure POST_LIST_SIZE % CQ_MOD = 0
 // We must assure TX_DEPTH % POST_LIST_SIZE = 0
-#define POST_LIST_SIZE 32
+#define POST_LIST_SIZE 64
 #define CQ_MOD 32
 #define QP_NUM 4
 #define CTX_POLL_BATCH 16
-#define TX_DEPTH 128
+#define TX_DEPTH 256
+#define MAX_OUTSTANDING_RQ TX_DEPTH / CQ_MOD
 
 int min(int a, int b){
     if(a < b){
@@ -170,32 +171,53 @@ int main(int argc, char **argv) {
 
     printf("Start Real Test \n");
     auto start = std::chrono::system_clock::now();
-    int avaliable = MAX_OUTSTANDING_REQ;
-    for (int k = 0; k < TEST_COUNT; k++) {
-        for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
-            int request_node = (k + multi_read_index) % NODE_COUNT;
-            if(random){
-                request_node = rand() % NODE_COUNT;
-            }
-            uint64_t remote_node_offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
-            local_offsets[multi_read_index] = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
-            remote_offsets[multi_read_index] = remote_node_offset;
-        }
+    if(sort_index){
+      
+      std::vector<int> all_request_nodes(TEST_COUNT * POST_LIST_SIZE);
+      for(int i=0; i < TEST_COUNT * POST_LIST_SIZE; i ++){
+        int request_node = rand() % NODE_COUNT;
+      }
+      std::sort(all_request_nodes.begin(), all_request_nodes.end());
 
-        if(sort_index){
-          std::sort(local_offsets.begin(), local_offsets.end());
-          std::sort(remote_offsets.begin(), remote_offsets.end());
-        }
+      start = std::chrono::system_clock::now();
+      for (int k = 0; k < TEST_COUNT; k++) {
+          for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
+              uint64_t remote_node_offset = all_request_nodes[k * POST_LIST_SIZE + multi_read_index] * FEATURE_DIM * FEATURE_TYPE_SIZE;
+              local_offsets[multi_read_index] = all_request_nodes[k * POST_LIST_SIZE + multi_read_index] * FEATURE_DIM * FEATURE_TYPE_SIZE;
+              remote_offsets[multi_read_index] = remote_node_offset;
+          }
 
-        
-        qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                    infinity::queues::OperationFlags(), requests[ k % (TX_DEPTH / CQ_MOD)], send_buffer, CQ_MOD);
-        epoch_scnt += POST_LIST_SIZE;
-        if(epoch_scnt ==  TX_DEPTH){
-            context -> batchPollSendCompletionQueue(CTX_POLL_BATCH, TX_DEPTH / CQ_MOD, wc_buffer.ptr());
-            epoch_scnt = 0;
-        }
-    
+          qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                      infinity::queues::OperationFlags(), requests[ k % (TX_DEPTH / CQ_MOD)], send_buffer, CQ_MOD);
+          epoch_scnt += POST_LIST_SIZE;
+          if(epoch_scnt ==  TX_DEPTH){
+              context -> batchPollSendCompletionQueue(CTX_POLL_BATCH, TX_DEPTH / CQ_MOD, wc_buffer.ptr());
+              epoch_scnt = 0;
+          }
+      }
+    }
+    else{
+      start = std::chrono::system_clock::now();
+      for (int k = 0; k < TEST_COUNT; k++) {
+          for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
+              int request_node = (k + multi_read_index) % NODE_COUNT;
+              if(random){
+                  request_node = rand() % NODE_COUNT;
+              }
+              uint64_t remote_node_offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
+              local_offsets[multi_read_index] = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
+              remote_offsets[multi_read_index] = remote_node_offset;
+          }
+          
+          qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
+                      infinity::queues::OperationFlags(), requests[ k % (TX_DEPTH / CQ_MOD)], send_buffer, CQ_MOD);
+          epoch_scnt += POST_LIST_SIZE;
+          if(epoch_scnt ==  TX_DEPTH){
+              context -> batchPollSendCompletionQueue(CTX_POLL_BATCH, TX_DEPTH / CQ_MOD, wc_buffer.ptr());
+              epoch_scnt = 0;
+          }
+      
+      }
     }
 
     auto end = std::chrono::system_clock::now();
