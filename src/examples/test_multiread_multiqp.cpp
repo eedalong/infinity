@@ -34,8 +34,8 @@
 #define FEATURE_TYPE_SIZE 4
 #define TEST_COUNT 8192
 #define ITER_NUM 1000
-#define POST_LIST_SIZE 16
-#define CQ_MOD 2
+#define POST_LIST_SIZE 32
+#define CQ_MOD 1
 #define QP_NUM 4
 #define TX_DEPTH 128
 #define CTX_POLL_BATCH 16
