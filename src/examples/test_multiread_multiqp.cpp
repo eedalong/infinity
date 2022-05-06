@@ -34,10 +34,10 @@
 #define FEATURE_TYPE_SIZE 4
 #define TEST_COUNT 8192
 #define ITER_NUM 1000
-#define POST_LIST_SIZE 32
-#define CQ_MOD 1
+#define POST_LIST_SIZE 16
+#define CQ_MOD 8
 #define QP_NUM 4
-#define TX_DEPTH 128
+#define TX_DEPTH 256
 #define CTX_POLL_BATCH 16
 
 int min(int a, int b){
@@ -139,8 +139,9 @@ int main(int argc, char **argv) {
         remoteBufferTokens[qp_index] = (infinity::memory::RegionToken *)qps[qp_index]->getUserData();
     }
 
+    int REQUEST_BUFFER_SIZE = TX_DEPTH / CQ_MOD / POST_LIST_SIZE;
     std::vector<infinity::requests::RequestToken *> requests;
-    for (int i = 0; i < TX_DEPTH; i++) {
+    for (int i = 0; i < REQUEST_BUFFER_SIZE; i++) {
       requests.push_back(new infinity::requests::RequestToken(context));
     }
 
@@ -163,8 +164,8 @@ int main(int argc, char **argv) {
       uint64_t offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
       //std::cout << "Getting Data From " << offset << " To " << offset + FEATURE_DIM * FEATURE_TYPE_SIZE << std::endl;
       qps[k % QP_NUM]->read(buffer1Sided, 0, remoteBufferTokens[k % QP_NUM], offset, FEATURE_DIM * FEATURE_TYPE_SIZE,
-                infinity::queues::OperationFlags(), requests[k % TX_DEPTH]);
-      requests[k % TX_DEPTH]->waitUntilCompleted();
+                infinity::queues::OperationFlags(), requests[k % REQUEST_BUFFER_SIZE]);
+      requests[k % REQUEST_BUFFER_SIZE]->waitUntilCompleted();
     }
 
     printf("Start Real Test \n");
@@ -194,9 +195,9 @@ int main(int argc, char **argv) {
               qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
                           infinity::queues::OperationFlags(), nullptr, send_buffer);
           }
-          if(epoch_scnt ==  TX_DEPTH){
+          if(epoch_scnt ==  REQUEST_BUFFER_SIZE){
             epoch_scnt = 0;
-            context->batchPollSendCompletionQueue(16, TX_DEPTH, wc_buffer.ptr());
+            context->batchPollSendCompletionQueue(16, REQUEST_BUFFER_SIZE, wc_buffer.ptr());
           }
         }
 
@@ -225,9 +226,9 @@ int main(int argc, char **argv) {
                 qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
                             infinity::queues::OperationFlags(), nullptr, send_buffer);
             }
-            if(epoch_scnt == TX_DEPTH){
+            if(epoch_scnt == REQUEST_BUFFER_SIZE){
               epoch_scnt = 0;
-              context->batchPollSendCompletionQueue(16, TX_DEPTH, wc_buffer.ptr());
+              context->batchPollSendCompletionQueue(16, REQUEST_BUFFER_SIZE, wc_buffer.ptr());
             }
         }
       }
