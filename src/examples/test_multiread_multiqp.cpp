@@ -175,7 +175,7 @@ int main(int argc, char **argv) {
       
       std::vector<int> all_request_nodes(TEST_COUNT * POST_LIST_SIZE);
       for(int i=0; i < TEST_COUNT * POST_LIST_SIZE; i ++){
-        int request_node = rand() % NODE_COUNT;
+        all_request_nodes[i] = rand() % NODE_COUNT;
       }
       std::sort(all_request_nodes.begin(), all_request_nodes.end());
 
