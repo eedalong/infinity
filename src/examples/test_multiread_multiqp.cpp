@@ -29,10 +29,10 @@
 #define PORT_NUMBER 3344
 #define SERVER_IP "155.198.152.17"
 
-#define NODE_COUNT 10000
+#define NODE_COUNT 1000000
 #define FEATURE_DIM 128
 #define FEATURE_TYPE_SIZE 4
-#define TEST_COUNT 35000
+#define TEST_COUNT 3500
 #define MAX_OUTSTANDING_REQ 1
 #define POST_LIST_SIZE 32
 #define CQ_MOD 25
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
           break;
         }
         case 't': {
-          sort_index = false;
+          sort_index = true;
           break;
         }
       }
