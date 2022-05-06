@@ -216,17 +216,17 @@ int main(int argc, char **argv) {
 
     printf("Start Real Test \n");
     //auto start = std::chrono::system_clock::now();
-    struct timeval start;
-		gettimeofday(&start, NULL);
+    struct timeval start, stop;
+    uint64_t time_consumed = 0;
     if(sort_index){
-  
-      std::vector<int> all_request_nodes(TEST_COUNT * POST_LIST_SIZE);
-      for(int i=0; i < TEST_COUNT * POST_LIST_SIZE; i ++){
-        all_request_nodes[i] = rand() % NODE_COUNT;
-      }
-      std::sort(all_request_nodes.begin(), all_request_nodes.end());
-      gettimeofday(&start, NULL);
       for(int iter_index = 0; iter_index < ITER_NUM; iter_index ++){
+        std::vector<int> all_request_nodes(TEST_COUNT * POST_LIST_SIZE);
+        for(int i=0; i < TEST_COUNT * POST_LIST_SIZE; i ++){
+            all_request_nodes[i] = rand() % NODE_COUNT;
+        }
+        std::sort(all_request_nodes.begin(), all_request_nodes.end());
+        gettimeofday(&start, NULL);
+
         for (int k = 0; k < TEST_COUNT; k++) {
           for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
               uint64_t remote_node_offset = all_request_nodes[k * POST_LIST_SIZE + multi_read_index] * FEATURE_DIM * FEATURE_TYPE_SIZE;
@@ -248,11 +248,13 @@ int main(int argc, char **argv) {
             context->batchPollSendCompletionQueue(CTX_POLL_BATCH, REQUEST_BUFFER_SIZE, wc_buffer.ptr());
           }
         }
-
+        gettimeofday(&stop, NULL);
+        time_consumed += timeDiff(stop, start);
       }
       
     }
     else{
+      gettimeofday(&start, NULL);
       for(int iter_index = 0; iter_index < ITER_NUM; iter_index++){
         for (int k = 0; k < TEST_COUNT; k++) {
             for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
@@ -280,12 +282,11 @@ int main(int argc, char **argv) {
             }
         }
       }
+      gettimeofday(&stop, NULL);
+      time_consumed += timeDiff(stop, start);
     }
 
-    struct timeval stop;
-		gettimeofday(&stop, NULL);
-    uint64_t time = timeDiff(stop, start);
-    printf("Avg Bandwidth is %f MB/s\n", (POST_LIST_SIZE * TEST_COUNT *  FEATURE_DIM/ (1024.0 * 1024.0) ) * FEATURE_TYPE_SIZE * ITER_NUM / (((double) time) / 1000000L) );
+    printf("Avg Bandwidth is %f MB/s\n", (POST_LIST_SIZE * TEST_COUNT *  FEATURE_DIM/ (1024.0 * 1024.0) ) * FEATURE_TYPE_SIZE * ITER_NUM / (((double) time_consumed) / 1000000L) );
 
     printf("Sending message to remote host from QueuePair %d\n", QP_NUM-1);
     qps[QP_NUM-1]->send(buffer2Sided, &requestToken);
