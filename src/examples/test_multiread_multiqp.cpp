@@ -80,11 +80,15 @@ bool mem_check(uint8_t* data_buffer){
         }
       }
     }
+    if(!have_valid_data){
+      fprintf(stderr, "You know, actually no data is copied successfully");
+    }
 
     for(u_int64_t start=0; start < NODE_COUNT * FEATURE_DIM * FEATURE_TYPE_SIZE; start += FEATURE_DIM * FEATURE_TYPE_SIZE){
       for(int dim = 0; dim < FEATURE_DIM; dim ++){
         //std::cout<< *((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE))<< " ";
         if (*((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)) != 0 && *((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)) != index){
+          fprintf(stderr, "At %ld: Epected %d, But got %d\n", start / FEATURE_DIM * FEATURE_TYPE_SIZE , index, *((int*)(data_buffer + start + dim * FEATURE_TYPE_SIZE)));
           return false;
         }
       }
@@ -227,7 +231,7 @@ int main(int argc, char **argv) {
         for (int k = 0; k < TEST_COUNT; k++) {
           for(int multi_read_index = 0; multi_read_index < POST_LIST_SIZE; multi_read_index ++){
               uint64_t remote_node_offset = all_request_nodes[k * POST_LIST_SIZE + multi_read_index] * FEATURE_DIM * FEATURE_TYPE_SIZE;
-              local_offsets[multi_read_index] = all_request_nodes[k * POST_LIST_SIZE + multi_read_index] * FEATURE_DIM * FEATURE_TYPE_SIZE;
+              local_offsets[multi_read_index] = remote_node_offset;
               remote_offsets[multi_read_index] = remote_node_offset;
           }
 
@@ -235,6 +239,7 @@ int main(int argc, char **argv) {
               qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
                           infinity::queues::OperationFlags(), requests[epoch_scnt], send_buffer);
               epoch_scnt += 1;
+              
           }else{
               qps[k % QP_NUM]->multiRead(buffer1Sided, local_offsets, remoteBufferTokens[k % QP_NUM], remote_offsets, FEATURE_DIM * FEATURE_TYPE_SIZE,
                           infinity::queues::OperationFlags(), nullptr, send_buffer);
@@ -257,7 +262,7 @@ int main(int argc, char **argv) {
                     request_node = rand() % NODE_COUNT;
                 }
                 uint64_t remote_node_offset = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
-                local_offsets[multi_read_index] = request_node * FEATURE_DIM * FEATURE_TYPE_SIZE;
+                local_offsets[multi_read_index] = remote_node_offset;
                 remote_offsets[multi_read_index] = remote_node_offset;
             }
 
