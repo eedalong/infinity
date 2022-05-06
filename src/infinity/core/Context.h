@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <infiniband/verbs.h>
 
+
 namespace infinity {
 namespace memory {
 class Region;
@@ -82,6 +83,11 @@ public:
 	 */
 	void postReceiveBuffer(infinity::memory::Buffer *buffer);
 
+	/*
+		Poll expected signal from completion queue
+	*/
+	void batchPollSendCompletionQueue(int poll_batch, int expected_num, ibv_wc* wc);
+
 public:
 
 	infinity::requests::RequestToken * defaultRequestToken;
@@ -115,6 +121,7 @@ protected:
 	 * Check if send operation completed
 	 */
 	bool pollSendCompletionQueue();
+
 
 	/**
 	 * Returns ibVerbs completion queue for sending

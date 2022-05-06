@@ -491,7 +491,8 @@ void QueuePair::multiRead(infinity::memory::Buffer *buffer,
                         std::vector<uint64_t> &remoteOffset,
                         uint32_t sizeInBytes, OperationFlags send_flags,
                         infinity::requests::RequestToken *requestToken,
-                        infinity::queues::SendRequestBuffer &send_buffer) {
+                        infinity::queues::SendRequestBuffer &send_buffer,
+						int cq_mod) {
 
   if (requestToken != NULL) {
     requestToken->reset();
@@ -515,12 +516,12 @@ void QueuePair::multiRead(infinity::memory::Buffer *buffer,
     send_buffer.requests[i].wr.rdma.rkey = source->getRemoteKey();
     send_buffer.requests[i].next =
         (i == n - 1) ? nullptr : &send_buffer.requests[i + 1];
+	send_buffer.requests[i].wr_id = reinterpret_cast<uint64_t>(requestToken);
+	if(i % cq_mod == (cq_mod - 1)){
+		send_buffer.requests[i].send_flags |= IBV_SEND_SIGNALED;
+	}
   }
-  if (requestToken != NULL) {
-    send_buffer.requests[n - 1].wr_id =
-        reinterpret_cast<uint64_t>(requestToken);
-    send_buffer.requests[n - 1].send_flags |= IBV_SEND_SIGNALED;
-  }
+
 
   INFINITY_ASSERT(sizeInBytes <=
                       buffer->getRemainingSizeInBytes(localOffset[0]),
